@@ -37,14 +37,17 @@ The event is dated with the order creation time when it is less than 72 hours ol
 as far back as GA4 accepts.
 
 **refund** – sent once for every successful Swell refund (`payment.refund.succeeded`), so an order refunded several
-times sends several refund events, each with that refund's amount, the order number and currency. 
+times sends several refund events, each with that refund's amount and currency, the Swell refund ID as
+`transaction_id`, and the custom params `order_id` (Swell order ID) and `order_number` linking it to the order.
+To use them in GA4 reports, register them as event-scoped custom dimensions (**Admin → Custom definitions**). 
 Refunds of payments without an order (e.g. subscription invoices) are skipped.
 
 - **Each refund once** – reported refunds are kept on the order by Swell refund ID (`ga4_refunds`), so retries and
   repeated events never send a refund twice, and refunds processed at the same time don't overwrite each other.
 - **Never more than the order** – a refund is capped at the part of the order total not reported yet.
 - **Canceled orders** – with **Refund canceled orders** on, `order.canceled` reports the rest of the order total as
-  one more refund (key `canceled`). Later refunds of that order are capped, so the order is never refunded twice.
+  one more refund (key `canceled`) with the order number as `transaction_id`, as it has no Swell refund. Later
+  refunds of that order are capped, so the order is never refunded twice.
 - Refunds are sent only for orders whose purchase was sent, and without items, which GA4 treats as a refund of the
   given value. `ga4_refund_value` on the order shows the total reported.
 
@@ -155,6 +158,10 @@ never stored in code.
 - **Consent** – the app does not send consent signals (`consent.ad_user_data`, `ad_personalization`). If your site
   uses Consent Mode, make sure server-side collection matches your consent policy before enabling the app.
 - **Refunds without items** – refunds report a value, not which items were returned.
+- **Refunds are not linked to the purchase** – a refund's `transaction_id` is the Swell refund ID, not the order
+  number, so GA4 reports refunds separately from the purchase transaction (canceled-order refunds use the order
+  number). Total refund amounts and net revenue are still correct. Use the `order_number` custom dimension to match
+  refunds to orders.
 - **No retries for setting errors** – events that fail with a 4xx (for example a wrong Measurement ID) are logged
   and dropped. Server errors are retried by Swell.
 

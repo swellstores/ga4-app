@@ -67,7 +67,15 @@ describe("event builders", () => {
       user_id: "acc_1",
       events: [{
         name: "refund",
-        params: { transaction_id: "100001", value: 10, currency: "USD", session_id: expect.any(Number), engagement_time_msec: 1 },
+        params: {
+          transaction_id: "100001",
+          value: 10,
+          currency: "USD",
+          order_id: "order_1",
+          order_number: "100001",
+          session_id: expect.any(Number),
+          engagement_time_msec: 1,
+        },
       }],
     });
   });
@@ -139,7 +147,10 @@ describe("refunds", () => {
 
     expect(await sendRefund(swell, settings as any, sentOrder(), { id: "r1", amount: 12.5 })).toEqual({ sent: true });
 
-    expect(sent(fetchMock)[0].body.events[0]).toMatchObject({ name: "refund", params: { transaction_id: "100001", value: 12.5 } });
+    expect(sent(fetchMock)[0].body.events[0]).toMatchObject({
+      name: "refund",
+      params: { transaction_id: "r1", value: 12.5, order_id: "order_1", order_number: "100001" },
+    });
     expect(savedStatus(swell)[0]).toEqual({
       path: "/orders/order_1",
       events: false,
@@ -188,7 +199,7 @@ describe("refunds", () => {
     const swell = mockSwell();
 
     expect(await sendCancelRefund(swell, settings as any, sentOrder({ canceled: true }, { ga4_refunds: { r1: 2.5 } }))).toEqual({ sent: true });
-    expect(sent(fetchMock)[0].body.events[0].params.value).toBe(50);
+    expect(sent(fetchMock)[0].body.events[0].params).toMatchObject({ transaction_id: "100001", value: 50, order_id: "order_1", order_number: "100001" });
     expect(savedStatus(swell)[0]).toMatchObject({ ga4_refunds: { canceled: 50 }, ga4_refund_value: 52.5 });
 
     expect(await sendCancelRefund(swell, settings as any, sentOrder({ canceled: true }, { ga4_refunds: { canceled: 50 } })))

@@ -115,7 +115,10 @@ describe("refund-events", () => {
     await refundEvents(refundRequest(swell));
     await refundEvents(refundRequest(swell, { id: "refund_2", amount: 5 }));
 
-    expect(sent(fetchMock).map((r) => r.body.events[0].params.value)).toEqual([7.5, 5]);
+    expect(sent(fetchMock).map((r) => r.body.events[0].params)).toMatchObject([
+      { transaction_id: "refund_1", value: 7.5, order_id: "order_1", order_number: "100001" },
+      { transaction_id: "refund_2", value: 5, order_id: "order_1", order_number: "100001" },
+    ]);
     expect(savedStatus(swell).map((s: any) => s.ga4_refunds)).toEqual([{ refund_1: 7.5 }, { refund_2: 5 }]);
   });
 

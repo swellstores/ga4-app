@@ -64,14 +64,18 @@ export function buildPurchase(order: any, settings: Ga4Settings): Ga4Payload {
   }], timestampMicros(order.date_submitted ?? order.date_created));
 }
 
-export function buildRefund(order: any, value: number, settings: Ga4Settings): Ga4Payload {
+// transactionId: the Swell refund ID, or the order number for the rest of a canceled order
+export function buildRefund(order: any, value: number, settings: Ga4Settings, transactionId?: string): Ga4Payload {
   const id = orderIdentity(order, settings);
   return payload(id, [{
     name: 'refund',
     params: compact({
-      transaction_id: String(order.number ?? order.id),
+      transaction_id: transactionId ?? String(order.number ?? order.id),
       value: money(value),
       currency: order.currency,
+      // custom params linking the refund to its Swell order
+      order_id: text(order.id),
+      order_number: text(order.number),
       ...commonParams(id, settings),
     }),
   }]);
@@ -129,6 +133,7 @@ async function sendRefundOnce(
   order: any,
   key: string,
   amount: number,
+  transactionId?: string,
 ): Promise<SendResult> {
   if (!appData(order).ga4_purchase_sent_at) {
     return { sent: false, reason: 'purchase not sent' };
@@ -142,7 +147,7 @@ async function sendRefundOnce(
     return { sent: false, reason: 'nothing left to refund' };
   }
   try {
-    await sendEvents(settings, buildRefund(order, value, settings));
+    await sendEvents(settings, buildRefund(order, value, settings, transactionId));
   } catch (err) {
     await saveStatus(swell, order.id, { ga4_error: (err as Error).message });
     throw err;
@@ -159,9 +164,10 @@ async function sendRefundOnce(
   return { sent: true };
 }
 
-// Report a successful Swell refund (payment.refund.succeeded) with its amount
+// Report a successful Swell refund (payment.refund.succeeded) with its amount, under its own refund ID
 export function sendRefund(swell: SwellClient, settings: Ga4Settings, order: any, refund: { id: string; amount: unknown }) {
-  return sendRefundOnce(swell, settings, order, String(refund.id), Number(refund.amount) || 0);
+  const refundId = String(refund.id);
+  return sendRefundOnce(swell, settings, order, refundId, Number(refund.amount) || 0, refundId);
 }
 
 // Report the rest of a canceled order as refunded, when Refund canceled orders is on
