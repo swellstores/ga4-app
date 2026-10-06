@@ -63,9 +63,7 @@
           "function": "send-to-ga4",
           "loading_label": "Sending to GA4…",
           "conditions": {
-            "ga4_purchase_sent_at": {
-              "$exists": false
-            }
+            "ga4_purchase_sent_at": null
           }
         }
       ],
@@ -104,7 +102,7 @@
               "id": "ga4_error",
               "conditions": {
                 "ga4_error": {
-                  "$exists": true
+                  "$ne": null
                 }
               }
             }
