@@ -17,22 +17,22 @@
       "image_src": "assets/images/1-setup.png"
     },
     {
+      "id": "events",
+      "title": "You choose what GA4 gets",
+      "description": "Pick when purchases are sent, and turn refunds, canceled orders and sign-ups on or off in the app settings.",
+      "image_src": "assets/images/2-events.png"
+    },
+    {
       "id": "purchases",
       "title": "Every purchase, counted in GA4",
       "description": "Paid orders are sent to GA4 from the server with items, tax, shipping and coupon, joined to the shopper's web session.",
-      "image_src": "assets/images/2-purchases.png"
+      "image_src": "assets/images/3-purchases.png"
     },
     {
       "id": "refunds",
       "title": "Refunds that match your revenue",
       "description": "Full and partial refunds are sent as GA4 refund events, and canceled orders can be reported as refunded.",
-      "image_src": "assets/images/3-refunds.png"
-    },
-    {
-      "id": "resend",
-      "title": "Missed one? Send it again",
-      "description": "Send purchases of orders from the last 72 hours from the order page, or up to 25 at once from the order list.",
-      "image_src": "assets/images/4-resend.png"
+      "image_src": "assets/images/4-refunds.png"
     }
   ]
 }
