@@ -23,7 +23,7 @@
     {
       "id": "api_secret",
       "label": "Measurement Protocol API secret",
-      "type": "short_text",
+      "type": "secret",
       "description": "GA4 → Admin → Data streams → your web stream → Measurement Protocol API secrets → Create",
       "required": true
     },

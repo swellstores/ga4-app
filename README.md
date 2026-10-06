@@ -91,7 +91,7 @@ never stored in code.
 | Setting            | Type   | Required | Default  | Description                                                                 |
 | ------------------ | ------ | -------- | -------- | --------------------------------------------------------------------------- |
 | `measurement_id`   | text   | yes      |          | Measurement ID of the GA4 web stream, `G-XXXXXXXXXX`.                        |
-| `api_secret`       | text   | yes      |          | Measurement Protocol API secret of the same stream.                         |
+| `api_secret`       | secret | yes      |          | Measurement Protocol API secret of the same stream. Masked in the dashboard, with Reveal and Copy buttons. |
 | `enabled`          | toggle | no       | off      | Sends events and allows the Send to GA4 actions.                            |
 | `send_purchase_on` | select | no       | `paid`   | Send `purchase` when the order is `paid` or `submitted`.                    |
 | `send_refunds`     | toggle | no       | on       | Send `refund` for full and partial refunds.                                 |
