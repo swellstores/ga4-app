@@ -77,12 +77,18 @@ export function buildRefund(order: any, value: number, settings: Ga4Settings): G
   }]);
 }
 
-// Total the app should have reported as refunded: the refund total, or the whole order once canceled
-export function refundTarget(order: any, settings: Ga4Settings) {
-  if ((order.canceled || order.status === 'canceled') && isOn(settings.refund_canceled)) {
-    return money(order.grand_total);
+// Refunds already reported to GA4, by Swell refund ID ('canceled' for a canceled order).
+// Orders sent before refunds were tracked by ID keep their total under 'previous'.
+export function reportedRefunds(order: any): Record<string, number> {
+  const data = appData(order);
+  if (data.ga4_refunds && typeof data.ga4_refunds === 'object') {
+    return data.ga4_refunds;
   }
-  return Math.min(money(order.refund_total), money(order.grand_total));
+  return data.ga4_refund_value ? { previous: money(data.ga4_refund_value) } : {};
+}
+
+export function reportedTotal(order: any) {
+  return money(Object.values(reportedRefunds(order)).reduce((sum, value) => sum + (Number(value) || 0), 0));
 }
 
 // Status stored on the order without triggering order events
@@ -115,23 +121,53 @@ export async function sendPurchase(swell: SwellClient, settings: Ga4Settings, or
   return { sent: true };
 }
 
-// Report what was refunded since the last refund event, for orders whose purchase was sent
-export async function sendRefund(swell: SwellClient, settings: Ga4Settings, order: any): Promise<SendResult> {
-  const data = appData(order);
-  if (!data.ga4_purchase_sent_at) {
+// Send one GA4 refund under a key that is never sent twice: a Swell refund ID, or 'canceled'.
+// The value is capped at the part of the order total not reported as refunded yet.
+async function sendRefundOnce(
+  swell: SwellClient,
+  settings: Ga4Settings,
+  order: any,
+  key: string,
+  amount: number,
+): Promise<SendResult> {
+  if (!appData(order).ga4_purchase_sent_at) {
     return { sent: false, reason: 'purchase not sent' };
   }
-  const target = refundTarget(order, settings);
-  const delta = money(target - money(data.ga4_refund_value));
-  if (delta < MIN_REFUND) {
-    return { sent: false, reason: 'nothing new refunded' };
+  const reported = reportedRefunds(order);
+  if (key in reported) {
+    return { sent: false, reason: 'already sent' };
+  }
+  const value = money(Math.min(money(amount), money(order.grand_total) - reportedTotal(order)));
+  if (value < MIN_REFUND) {
+    return { sent: false, reason: 'nothing left to refund' };
   }
   try {
-    await sendEvents(settings, buildRefund(order, delta, settings));
+    await sendEvents(settings, buildRefund(order, value, settings));
   } catch (err) {
     await saveStatus(swell, order.id, { ga4_error: (err as Error).message });
     throw err;
   }
-  await saveStatus(swell, order.id, { ga4_refund_value: target, ga4_refund_sent_at: new Date().toISOString(), ga4_error: null });
+  // ga4_refunds is merged by key, so refunds saved at the same time don't overwrite each other.
+  // An older order keeps its earlier total under 'previous'.
+  const previous = !appData(order).ga4_refunds && reported.previous ? { previous: reported.previous } : {};
+  await saveStatus(swell, order.id, {
+    ga4_refunds: { ...previous, [key]: value },
+    ga4_refund_value: money(reportedTotal(order) + value),
+    ga4_refund_sent_at: new Date().toISOString(),
+    ga4_error: null,
+  });
   return { sent: true };
+}
+
+// Report a successful Swell refund (payment.refund.succeeded) with its amount
+export function sendRefund(swell: SwellClient, settings: Ga4Settings, order: any, refund: { id: string; amount: unknown }) {
+  return sendRefundOnce(swell, settings, order, String(refund.id), Number(refund.amount) || 0);
+}
+
+// Report the rest of a canceled order as refunded, when Refund canceled orders is on
+export function sendCancelRefund(swell: SwellClient, settings: Ga4Settings, order: any): Promise<SendResult> {
+  if (!isOn(settings.refund_canceled)) {
+    return Promise.resolve({ sent: false, reason: 'refunds of canceled orders are off' });
+  }
+  return sendRefundOnce(swell, settings, order, 'canceled', Number(order.grand_total) || 0);
 }

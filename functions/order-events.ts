@@ -1,10 +1,10 @@
 import { errorMessage, getSettings, hasCredentials, isOn } from './lib/ga4';
-import { ORDER_EXPAND, sendPurchase, sendRefund } from './lib/orders';
+import { ORDER_EXPAND, sendCancelRefund, sendPurchase } from './lib/orders';
 
 export const config: SwellConfig = {
-  description: 'Send purchase and refund events to GA4',
+  description: 'Send purchase events to GA4, and refund the rest of canceled orders',
   model: {
-    events: ['order.submitted', 'order.paid', 'order.refunded', 'order.canceled', 'order.updated'],
+    events: ['order.submitted', 'order.paid', 'order.canceled'],
   },
 };
 
@@ -18,10 +18,8 @@ export default async function (req: SwellRequest) {
   }
 
   const purchaseEvent = settings.send_purchase_on === 'submitted' ? 'order.submitted' : 'order.paid';
-  const isRefund = event === 'order.refunded' || event === 'order.canceled'
-    // partial refunds change refund_total without an order.refunded event
-    || (event === 'order.updated' && 'refund_total' in (data.$event?.data ?? {}));
-  if (event !== purchaseEvent && !(isRefund && isOn(settings.send_refunds))) {
+  const isCancel = event === 'order.canceled';
+  if (event !== purchaseEvent && !(isCancel && isOn(settings.send_refunds))) {
     return;
   }
 
@@ -31,11 +29,11 @@ export default async function (req: SwellRequest) {
   }
 
   try {
-    const result = event === purchaseEvent
-      ? await sendPurchase(swell, settings, order)
-      : await sendRefund(swell, settings, order);
+    const result = isCancel
+      ? await sendCancelRefund(swell, settings, order)
+      : await sendPurchase(swell, settings, order);
     if (result.sent) {
-      console.log(`GA4: sent ${event === purchaseEvent ? 'purchase' : 'refund'} for order ${order.number}`);
+      console.log(`GA4: sent ${isCancel ? 'refund for canceled' : 'purchase for'} order ${order.number}`);
     }
   } catch (err) {
     console.error(`GA4: failed to send ${event} for order ${order.number} - ${errorMessage(err)}`);

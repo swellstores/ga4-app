@@ -5,6 +5,7 @@ import orderEvents, { config as orderConfig } from "../../functions/order-events
 import accountEvents, { config as accountConfig } from "../../functions/account-events";
 import validateEvent, { config as validateConfig } from "../../functions/validate-event";
 import sendToGa4, { MAX_SELECTION, config as sendConfig, summaryMessage } from "../../functions/send-to-ga4";
+import refundEvents, { config as refundConfig } from "../../functions/refund-events";
 
 beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -27,7 +28,8 @@ const sentApp = { $app: { ga4: { ga4_purchase_sent_at: "2026-10-05T10:00:00Z" } 
 
 describe("function configs", () => {
   it("declare the expected triggers", () => {
-    expect(orderConfig.model?.events).toEqual(["order.submitted", "order.paid", "order.refunded", "order.canceled", "order.updated"]);
+    expect(orderConfig.model?.events).toEqual(["order.submitted", "order.paid", "order.canceled"]);
+    expect(refundConfig.model?.events).toEqual(["payment.refund.succeeded"]);
     expect(accountConfig.model?.events).toEqual(["account.created"]);
     expect(validateConfig.action).toBe(true);
     expect(sendConfig.action).toBe(true);
@@ -66,29 +68,22 @@ describe("order-events", () => {
     expect(sent(fetchMock)).toHaveLength(1);
   });
 
-  it.each([
-    ["order.refunded", { refund_total: 52.5 }, {}],
-    ["order.canceled", { canceled: true }, {}],
-    ["order.updated", { refund_total: 10 }, { id: "order_1", refund_total: 10 }],
-  ])("sends a refund on %s", async (type, overrides, changes) => {
+  it("refunds the rest of a canceled order", async () => {
     const fetchMock = mockGa4();
-    const swell = mockSwell({ "/orders/order_1": makeOrder({ ...overrides, ...sentApp }) });
+    const swell = mockSwell({ "/orders/order_1": makeOrder({ canceled: true, ...sentApp }) });
 
-    await orderEvents(eventRequest(swell, type, {}, changes));
+    await orderEvents(eventRequest(swell, "order.canceled"));
 
-    expect(sent(fetchMock)[0].body.events[0].name).toBe("refund");
+    expect(sent(fetchMock)[0].body.events[0]).toMatchObject({ name: "refund", params: { value: 52.5 } });
   });
 
-  it("ignores other updates and refunds when turned off", async () => {
+  it("ignores cancellations when refunds are turned off", async () => {
     const fetchMock = mockGa4();
+    const swell = mockSwell({ "/orders/order_1": makeOrder({ canceled: true, ...sentApp }) }, { ...settings, send_refunds: false });
 
-    const swell = mockSwell({ "/orders/order_1": makeOrder({ refund_total: 10, ...sentApp }) });
-    await orderEvents(eventRequest(swell, "order.updated", {}, { id: "order_1", $app: { ga4: {} } }));
+    await orderEvents(eventRequest(swell, "order.canceled"));
+
     expect(swell.get).not.toHaveBeenCalled();
-
-    const off = mockSwell({ "/orders/order_1": makeOrder({ refund_total: 10, ...sentApp }) }, { ...settings, send_refunds: false });
-    await orderEvents(eventRequest(off, "order.refunded"));
-    expect(off.get).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -106,6 +101,45 @@ describe("order-events", () => {
     const fetchMock = mockGa4();
     await orderEvents(eventRequest(mockSwell(), "order.paid"));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("refund-events", () => {
+  const refundRequest = (swell: any, data: Record<string, any> = {}) =>
+    createMockRequest({ swell, data: { id: "refund_1", order_id: "order_1", amount: 7.5, ...data, $event: { type: "payment.refund.succeeded" } } });
+
+  it("sends each successful refund of an order", async () => {
+    const fetchMock = mockGa4();
+    const swell = mockSwell({ "/orders/order_1": makeOrder(sentApp) });
+
+    await refundEvents(refundRequest(swell));
+    await refundEvents(refundRequest(swell, { id: "refund_2", amount: 5 }));
+
+    expect(sent(fetchMock).map((r) => r.body.events[0].params.value)).toEqual([7.5, 5]);
+    expect(savedStatus(swell).map((s: any) => s.ga4_refunds)).toEqual([{ refund_1: 7.5 }, { refund_2: 5 }]);
+  });
+
+  it("does nothing when disabled, refunds are off, or the refund has no order", async () => {
+    const fetchMock = mockGa4();
+    for (const ga4 of [{ ...settings, enabled: false }, { ...settings, send_refunds: false }]) {
+      const swell = mockSwell({}, ga4);
+      await refundEvents(refundRequest(swell));
+      expect(swell.get).not.toHaveBeenCalled();
+    }
+    const swell = mockSwell();
+    await refundEvents(refundRequest(swell, { order_id: null }));
+    await refundEvents(refundRequest(swell));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not retry client errors and throws server errors for a retry", async () => {
+    mockGa4({ collect: { status: 400 } });
+    await expect(refundEvents(refundRequest(mockSwell({ "/orders/order_1": makeOrder(sentApp) })))).resolves.toBeUndefined();
+
+    vi.restoreAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGa4({ collect: { status: 500 } });
+    await expect(refundEvents(refundRequest(mockSwell({ "/orders/order_1": makeOrder(sentApp) })))).rejects.toMatchObject({ status: 500 });
   });
 });
 

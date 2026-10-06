@@ -15,6 +15,10 @@
       "type": "float",
       "description": "Total amount reported to GA4 as refunded"
     },
+    "ga4_refunds": {
+      "type": "object",
+      "description": "Amounts reported to GA4 as refunded, by Swell refund ID ('canceled' for a canceled order), so each refund is sent once"
+    },
     "ga4_refund_sent_at": {
       "type": "date",
       "description": "When the last refund event was sent to GA4"

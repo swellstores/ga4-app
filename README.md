@@ -15,8 +15,7 @@ for the EU endpoint) with the Measurement ID and API secret. Amounts are sent in
 | Swell event                                         | GA4 event  | Function                      |
 | --------------------------------------------------- | ---------- | ----------------------------- |
 | `order.paid` (or `order.submitted`, see settings)   | `purchase` | `functions/order-events.ts`   |
-| `order.refunded`                                    | `refund`   | `functions/order-events.ts`   |
-| `order.updated` with a changed `refund_total`       | `refund`   | `functions/order-events.ts`   |
+| `payment.refund.succeeded` (every refund)           | `refund`   | `functions/refund-events.ts`  |
 | `order.canceled`                                    | `refund`   | `functions/order-events.ts`   |
 | `account.created`                                   | `sign_up`  | `functions/account-events.ts` |
 
@@ -37,11 +36,17 @@ Events are sent only when **Enable Integration** is on and a valid Measurement I
 The event is dated with the order creation time when it is less than 72 hours old (`timestamp_micros`), which is
 as far back as GA4 accepts.
 
-**refund** – sent with the order number, currency and the amount refunded since the last refund event, for orders
-whose purchase was sent. The app keeps the reported total on the order (`ga4_refund_value`), so partial refunds,
-full refunds and a later cancellation each report only the new amount. With **Refund canceled orders** on, a
-canceled order reports the rest of its total as refunded. Refunds are sent without items, which GA4 treats as a
-refund of the given value.
+**refund** – sent once for every successful Swell refund (`payment.refund.succeeded`), so an order refunded several
+times sends several refund events, each with that refund's amount, the order number and currency. 
+Refunds of payments without an order (e.g. subscription invoices) are skipped.
+
+- **Each refund once** – reported refunds are kept on the order by Swell refund ID (`ga4_refunds`), so retries and
+  repeated events never send a refund twice, and refunds processed at the same time don't overwrite each other.
+- **Never more than the order** – a refund is capped at the part of the order total not reported yet.
+- **Canceled orders** – with **Refund canceled orders** on, `order.canceled` reports the rest of the order total as
+  one more refund (key `canceled`). Later refunds of that order are capped, so the order is never refunded twice.
+- Refunds are sent only for orders whose purchase was sent, and without items, which GA4 treats as a refund of the
+  given value. `ga4_refund_value` on the order shows the total reported.
 
 **sign_up** – sent with `method: email` when a customer account is created, including accounts created at checkout.
 
@@ -94,7 +99,7 @@ never stored in code.
 | `api_secret`       | secret | yes      |          | Measurement Protocol API secret of the same stream. Masked in the dashboard, with Reveal and Copy buttons. |
 | `enabled`          | toggle | no       | off      | Sends events and allows the Send to GA4 actions.                            |
 | `send_purchase_on` | select | no       | `paid`   | Send `purchase` when the order is `paid` or `submitted`.                    |
-| `send_refunds`     | toggle | no       | on       | Send `refund` for full and partial refunds.                                 |
+| `send_refunds`     | toggle | no       | on       | Send a `refund` for every successful refund, full or partial.              |
 | `refund_canceled`  | toggle | no       | on       | Report the rest of a canceled order as refunded.                            |
 | `send_sign_up`     | toggle | no       | on       | Send `sign_up` when an account is created.                                  |
 | `region`           | select | no       | `global` | `global` or `eu` (`region1.google-analytics.com`) collection endpoint.     |
@@ -159,7 +164,8 @@ never stored in code.
 
 ```
 functions/
-  order-events.ts     # order.paid / submitted → purchase; refunded / canceled / refund_total changes → refund
+  order-events.ts     # order.paid / submitted → purchase; order.canceled → refund of the rest
+  refund-events.ts    # payment.refund.succeeded → one refund per Swell refund
   account-events.ts   # account.created → sign_up
   send-to-ga4.ts      # dashboard action: send purchases of selected recent orders
   validate-event.ts   # settings action: validate a sample purchase

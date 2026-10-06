@@ -4,7 +4,9 @@ import {
   buildPurchase,
   buildRefund,
   isPurchaseReady,
-  refundTarget,
+  reportedRefunds,
+  reportedTotal,
+  sendCancelRefund,
   sendPurchase,
   sendRefund,
 } from "../../functions/lib/orders";
@@ -81,11 +83,11 @@ describe("rules", () => {
     expect(isPurchaseReady(null, settings as any)).toBe(false);
   });
 
-  it("reports the refund total, or the whole order once canceled", () => {
-    expect(refundTarget(makeOrder({ refund_total: 10 }), settings as any)).toBe(10);
-    expect(refundTarget(makeOrder({ refund_total: 99 }), settings as any)).toBe(52.5);
-    expect(refundTarget(makeOrder({ canceled: true, refund_total: 0 }), settings as any)).toBe(52.5);
-    expect(refundTarget(makeOrder({ canceled: true, refund_total: 0 }), { refund_canceled: false })).toBe(0);
+  it("reads refunds reported by ID, and the total of orders sent before refunds were tracked by ID", () => {
+    expect(reportedRefunds(makeOrder())).toEqual({});
+    expect(reportedRefunds(makeOrder({ $app: { ga4: { ga4_refunds: { r1: 5, r2: 2.5 } } } }))).toEqual({ r1: 5, r2: 2.5 });
+    expect(reportedTotal(makeOrder({ $app: { ga4: { ga4_refunds: { r1: 5, r2: 2.5 } } } }))).toBe(7.5);
+    expect(reportedRefunds(makeOrder({ $app: { ga4: { ga4_refund_value: 2 } } }))).toEqual({ previous: 2 });
   });
 });
 
@@ -127,35 +129,80 @@ describe("sendPurchase", () => {
   });
 });
 
-describe("sendRefund", () => {
+describe("refunds", () => {
   const sentOrder = (overrides = {}, app = {}) =>
     makeOrder({ $app: { ga4: { ga4_purchase_sent_at: "2026-10-05T10:00:00Z", ...app } }, ...overrides });
 
-  it("sends what was refunded since the last refund event", async () => {
+  it("sends each Swell refund with its own amount and remembers it by ID", async () => {
     const fetchMock = mockGa4();
     const swell = mockSwell();
 
-    expect(await sendRefund(swell, settings as any, sentOrder({ refund_total: 30 }, { ga4_refund_value: 10 }))).toEqual({ sent: true });
+    expect(await sendRefund(swell, settings as any, sentOrder(), { id: "r1", amount: 12.5 })).toEqual({ sent: true });
 
-    expect(sent(fetchMock)[0].body.events[0].params.value).toBe(20);
-    expect(savedStatus(swell)[0]).toMatchObject({ ga4_refund_value: 30, ga4_error: null, events: false });
+    expect(sent(fetchMock)[0].body.events[0]).toMatchObject({ name: "refund", params: { transaction_id: "100001", value: 12.5 } });
+    expect(savedStatus(swell)[0]).toEqual({
+      path: "/orders/order_1",
+      events: false,
+      ga4_refunds: { r1: 12.5 },
+      ga4_refund_value: 12.5,
+      ga4_refund_sent_at: expect.any(String),
+      ga4_error: null,
+    });
   });
 
-  it("reports the rest of a canceled order", async () => {
+  it("sends several refunds of the same order, each once", async () => {
     const fetchMock = mockGa4();
+    const swell = mockSwell();
+    const order = sentOrder({}, { ga4_refunds: { r1: 10 } });
 
-    await sendRefund(mockSwell(), settings as any, sentOrder({ canceled: true, refund_total: 0 }, { ga4_refund_value: 2.5 }));
+    expect(await sendRefund(swell, settings as any, order, { id: "r2", amount: 15 })).toEqual({ sent: true });
+    expect(await sendRefund(swell, settings as any, order, { id: "r1", amount: 10 })).toEqual({ sent: false, reason: "already sent" });
 
+    expect(sent(fetchMock)).toHaveLength(1);
+    expect(sent(fetchMock)[0].body.events[0].params.value).toBe(15);
+    expect(savedStatus(swell)[0]).toMatchObject({ ga4_refunds: { r2: 15 }, ga4_refund_value: 25 });
+  });
+
+  it("caps refunds at the part of the order not reported yet", async () => {
+    const fetchMock = mockGa4();
+    const swell = mockSwell();
+
+    await sendRefund(swell, settings as any, sentOrder({}, { ga4_refunds: { r1: 50 } }), { id: "r2", amount: 10 });
+    expect(sent(fetchMock)[0].body.events[0].params.value).toBe(2.5);
+
+    expect(await sendRefund(swell, settings as any, sentOrder({}, { ga4_refunds: { canceled: 52.5 } }), { id: "r3", amount: 10 }))
+      .toEqual({ sent: false, reason: "nothing left to refund" });
+  });
+
+  it("keeps the total of orders refunded before refunds were tracked by ID", async () => {
+    mockGa4();
+    const swell = mockSwell();
+
+    await sendRefund(swell, settings as any, sentOrder({}, { ga4_refund_value: 2 }), { id: "r2", amount: 3 });
+
+    expect(savedStatus(swell)[0]).toMatchObject({ ga4_refunds: { previous: 2, r2: 3 }, ga4_refund_value: 5 });
+  });
+
+  it("reports the rest of a canceled order once, when turned on", async () => {
+    const fetchMock = mockGa4();
+    const swell = mockSwell();
+
+    expect(await sendCancelRefund(swell, settings as any, sentOrder({ canceled: true }, { ga4_refunds: { r1: 2.5 } }))).toEqual({ sent: true });
     expect(sent(fetchMock)[0].body.events[0].params.value).toBe(50);
+    expect(savedStatus(swell)[0]).toMatchObject({ ga4_refunds: { canceled: 50 }, ga4_refund_value: 52.5 });
+
+    expect(await sendCancelRefund(swell, settings as any, sentOrder({ canceled: true }, { ga4_refunds: { canceled: 50 } })))
+      .toEqual({ sent: false, reason: "already sent" });
+    expect(await sendCancelRefund(swell, { refund_canceled: false }, sentOrder({ canceled: true })))
+      .toEqual({ sent: false, reason: "refunds of canceled orders are off" });
   });
 
-  it("skips orders whose purchase was not sent or with nothing new refunded", async () => {
+  it("skips orders whose purchase was not sent and ignores empty amounts", async () => {
     const fetchMock = mockGa4();
     const swell = mockSwell();
 
-    expect(await sendRefund(swell, settings as any, makeOrder({ refund_total: 5 }))).toEqual({ sent: false, reason: "purchase not sent" });
-    expect(await sendRefund(swell, settings as any, sentOrder({ refund_total: 5 }, { ga4_refund_value: 5 })))
-      .toEqual({ sent: false, reason: "nothing new refunded" });
+    expect(await sendRefund(swell, settings as any, makeOrder(), { id: "r1", amount: 5 })).toEqual({ sent: false, reason: "purchase not sent" });
+    expect(await sendRefund(swell, settings as any, sentOrder(), { id: "r1", amount: null })).toEqual({ sent: false, reason: "nothing left to refund" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -163,7 +210,7 @@ describe("sendRefund", () => {
     mockGa4({ collect: { status: 503 } });
     const swell = mockSwell();
 
-    await expect(sendRefund(swell, settings as any, sentOrder({ refund_total: 5 }))).rejects.toMatchObject({ status: 503 });
+    await expect(sendRefund(swell, settings as any, sentOrder(), { id: "r1", amount: 5 })).rejects.toMatchObject({ status: 503 });
     expect(savedStatus(swell)[0].ga4_error).toBe("GA4 collect failed (503)");
   });
 });

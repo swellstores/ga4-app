@@ -9,10 +9,10 @@ Send purchases, refunds and sign-ups from Swell to Google Analytics 4 with the M
    | Store event                                   | GA4 event   |
    | --------------------------------------------- | ----------- |
    | `order.paid` (or `order.submitted`)           | `purchase`  |
-   | `order.refunded`, partial refunds, `order.canceled` | `refund` |
+   | each successful refund, `order.canceled`      | `refund`    |
    | `account.created`                             | `sign_up`   |
 
-   Purchases include the order number as `transaction_id`, total, currency, tax, shipping, coupon and items (SKU, name, variant, discounted price, quantity). Refunds report only what was refunded since the last refund event, and canceled orders can be reported as fully refunded.
+   Purchases include the order number as `transaction_id`, total, currency, tax, shipping, coupon and items (SKU, name, variant, discounted price, quantity). Each refund of an order is sent once with its own amount, so an order can be refunded several times, and canceled orders can be reported as fully refunded. Refunds never exceed the order total.
 
 2. **Joins the shopper's session.** When the storefront saves the GA4 client and session IDs in the cart metadata, server events are attributed to the same visitor, session and traffic source as their browser events. Otherwise each customer gets a stable ID, and the Swell customer ID is sent as `user_id`.
 
