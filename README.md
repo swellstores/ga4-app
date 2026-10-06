@@ -2,8 +2,8 @@
 
 A Swell app that sends purchases, refunds and sign-ups to [Google Analytics 4](https://marketingplatform.google.com/about/analytics/)
 from the server with the [Measurement Protocol](https://developers.google.com/analytics/devguides/collection/protocol/ga4).
-Server events are recorded even when ad blockers, consent tools or a closed tab stop browser tracking, and they can
-be joined to the shopper's browser session.
+Server events are recorded even when ad blockers or a closed tab stop browser tracking, and they can be joined to
+the shopper's browser session.
 
 ## Features
 
