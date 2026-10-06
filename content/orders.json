@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json.swell.store/content.json",
+  "collection": "orders",
+  "description": "GA4 events sent for orders",
+  "fields": [
+    {
+      "id": "ga4_purchase_sent_at",
+      "label": "Purchase sent",
+      "type": "datetime",
+      "readonly": true
+    },
+    {
+      "id": "ga4_client_id",
+      "label": "GA4 client ID",
+      "type": "short_text",
+      "readonly": true,
+      "description": "From the storefront session, or swell.<customer ID> when the storefront did not save one"
+    },
+    {
+      "id": "ga4_refund_value",
+      "label": "Refunded in GA4",
+      "type": "number",
+      "readonly": true
+    },
+    {
+      "id": "ga4_refund_sent_at",
+      "label": "Last refund sent",
+      "type": "datetime",
+      "readonly": true
+    },
+    {
+      "id": "ga4_error",
+      "label": "Error",
+      "type": "long_text",
+      "readonly": true
+    }
+  ],
+  "views": [
+    {
+      "id": "list",
+      "fields": [
+        {
+          "id": "ga4_purchase_sent_at",
+          "label": "GA4"
+        }
+      ],
+      "bulk_actions": [
+        {
+          "id": "send_to_ga4",
+          "label": "Send to GA4",
+          "function": "send-to-ga4",
+          "loading_label": "Sending to GA4…",
+          "hint": "Send purchases of up to 25 selected orders from the last 72 hours"
+        }
+      ]
+    },
+    {
+      "id": "edit",
+      "extra_actions": [
+        {
+          "id": "send_to_ga4",
+          "label": "Send purchase to GA4",
+          "function": "send-to-ga4",
+          "loading_label": "Sending to GA4…",
+          "conditions": {
+            "ga4_purchase_sent_at": {
+              "$exists": false
+            }
+          }
+        }
+      ],
+      "tabs": [
+        {
+          "id": "ga4",
+          "label": "Google Analytics",
+          "fields": [
+            {
+              "type": "field_row",
+              "fields": [
+                {
+                  "id": "ga4_purchase_sent_at",
+                  "admin_span": 2
+                },
+                {
+                  "id": "ga4_client_id",
+                  "admin_span": 2
+                }
+              ]
+            },
+            {
+              "type": "field_row",
+              "fields": [
+                {
+                  "id": "ga4_refund_value",
+                  "admin_span": 2
+                },
+                {
+                  "id": "ga4_refund_sent_at",
+                  "admin_span": 2
+                }
+              ]
+            },
+            {
+              "id": "ga4_error",
+              "conditions": {
+                "ga4_error": {
+                  "$exists": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

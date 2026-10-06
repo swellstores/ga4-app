@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.swell.store/model.json",
+  "collection": "orders",
+  "description": "GA4 events sent for the order",
+  "fields": {
+    "ga4_purchase_sent_at": {
+      "type": "date",
+      "description": "When the purchase event was sent to GA4"
+    },
+    "ga4_client_id": {
+      "type": "string",
+      "description": "GA4 client ID the events were sent with"
+    },
+    "ga4_refund_value": {
+      "type": "float",
+      "description": "Total amount reported to GA4 as refunded"
+    },
+    "ga4_refund_sent_at": {
+      "type": "date",
+      "description": "When the last refund event was sent to GA4"
+    },
+    "ga4_error": {
+      "type": "string",
+      "description": "Why the last event could not be sent"
+    }
+  }
+}
