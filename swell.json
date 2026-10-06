@@ -1,38 +1,38 @@
 {
-  "description": "Server-side GA4 purchases, refunds and sign-ups",
-  "id": "ga4",
-  "name": "Google Analytics 4",
-  "type": "integration",
-  "version": "1.0.0",
-  "permissions": [],
-  "support_email": "support@swell.is",
-  "integrations": [
-    "google_analytics"
-  ],
-  "images": [
-    {
-      "id": "setup",
-      "title": "Connected in a few minutes",
-      "description": "Add the Measurement ID and an API secret from your GA4 web stream, validate, then turn on Enable Integration.",
-      "image_src": "assets/images/1-setup.png"
-    },
-    {
-      "id": "events",
-      "title": "You choose what GA4 gets",
-      "description": "Pick when purchases are sent, and turn refunds, canceled orders and sign-ups on or off in the app settings.",
-      "image_src": "assets/images/2-events.png"
-    },
-    {
-      "id": "purchases",
-      "title": "Every purchase, counted in GA4",
-      "description": "Paid orders are sent to GA4 from the server with items, tax, shipping and coupon, joined to the shopper's web session.",
-      "image_src": "assets/images/3-purchases.png"
-    },
-    {
-      "id": "refunds",
-      "title": "Refunds that match your revenue",
-      "description": "Full and partial refunds are sent as GA4 refund events, and canceled orders can be reported as refunded.",
-      "image_src": "assets/images/4-refunds.png"
-    }
-  ]
+	"description": "Server-side GA4 purchases, refunds and sign-ups",
+	"id": "ga4",
+	"name": "Google Analytics 4",
+	"type": "integration",
+	"version": "1.0.0",
+	"permissions": [],
+	"support_email": "support@swell.is",
+	"integrations": [
+		"google_analytics"
+	],
+	"images": [
+		{
+			"id": "setup",
+			"title": "Connected in a few minutes",
+			"description": "Add the Measurement ID and an API secret from your GA4 web stream, validate, then turn on Enable Integration.",
+			"image_src": "assets/images/1-setup.png"
+		},
+		{
+			"id": "events",
+			"title": "You choose what GA4 gets",
+			"description": "Pick when purchases are sent, and turn refunds, canceled orders and sign-ups on or off in the app settings.",
+			"image_src": "assets/images/2-events.png"
+		},
+		{
+			"id": "purchases",
+			"title": "Every purchase, counted in GA4",
+			"description": "Paid orders are sent to GA4 from the server with items, tax, shipping and coupon, joined to the shopper's web session.",
+			"image_src": "assets/images/3-purchases.png"
+		},
+		{
+			"id": "refunds",
+			"title": "Refunds that match your revenue",
+			"description": "Full and partial refunds are sent as GA4 refund events, and canceled orders can be reported as refunded.",
+			"image_src": "assets/images/4-refunds.png"
+		}
+	]
 }
