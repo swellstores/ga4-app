@@ -5,10 +5,10 @@
   "actions": [
     {
       "id": "validate_event",
-      "label": "Validate setup",
+      "label": "Test connection",
       "function": "validate-event",
-      "loading_label": "Validating…",
-      "hint": "Checks the Measurement ID and a sample purchase with the GA4 validation server"
+      "loading_label": "Testing…",
+      "hint": "Checks a sample purchase with GA4's validation server, which can't verify the Measurement ID or API secret themselves"
     }
   ],
   "fields": [

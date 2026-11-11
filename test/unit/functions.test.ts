@@ -182,9 +182,9 @@ describe("account-events", () => {
 describe("validate-event", () => {
   it("asks for a valid Measurement ID and API secret first", async () => {
     await expect(validateEvent(createMockRequest({ swell: mockSwell({}, { measurement_id: "UA-1" }) })))
-      .rejects.toThrow("Enter a Measurement ID like G-XXXXXXXXXX, save, then validate again.");
+      .rejects.toThrow("Enter a Measurement ID like G-XXXXXXXXXX, save, then test again.");
     await expect(validateEvent(createMockRequest({ swell: mockSwell({}, { measurement_id: "G-ABCD1234" }) })))
-      .rejects.toThrow("Enter the Measurement Protocol API secret, save, then validate again.");
+      .rejects.toThrow("Enter the Measurement Protocol API secret, save, then test again.");
   });
 
   it("validates a sample purchase without recording it", async () => {
@@ -192,7 +192,7 @@ describe("validate-event", () => {
 
     const result = await validateEvent(createMockRequest({ swell: mockSwell() }));
 
-    expect(result.message).toContain("GA4 accepted a sample purchase");
+    expect(result.message).toContain("GA4's validation server accepted a sample purchase for G-");
     expect(sent(fetchMock)).toHaveLength(1);
     expect(sent(fetchMock)[0].path).toBe("/debug/mp/collect");
     expect(sent(fetchMock)[0].body.events[0]).toMatchObject({ name: "purchase", params: { transaction_id: "TEST-1001" } });

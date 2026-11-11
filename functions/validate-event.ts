@@ -24,10 +24,10 @@ export const SAMPLE_ORDER = {
 export default async function (req: SwellRequest) {
   const settings = getSettings(await req.swell.settings());
   if (!isValidMeasurementId(settings.measurement_id)) {
-    throw new SwellError('Enter a Measurement ID like G-XXXXXXXXXX, save, then validate again.', { status: 400 });
+    throw new SwellError('Enter a Measurement ID like G-XXXXXXXXXX, save, then test again.', { status: 400 });
   }
   if (!settings.api_secret?.trim()) {
-    throw new SwellError('Enter the Measurement Protocol API secret, save, then validate again.', { status: 400 });
+    throw new SwellError('Enter the Measurement Protocol API secret, save, then test again.', { status: 400 });
   }
 
   let messages;
@@ -42,7 +42,8 @@ export default async function (req: SwellRequest) {
   }
 
   return {
-    message: 'GA4 accepted a sample purchase. The validation server does not check the API secret: '
+    message: `GA4's validation server accepted a sample purchase for ${settings.measurement_id!.trim()}. `
+      + "It can't check that the Measurement ID and API secret belong to your property: "
       + 'turn on Debug mode and watch Admin → DebugView in GA4 to confirm events arrive.',
   };
 }

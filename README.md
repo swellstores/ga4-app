@@ -87,7 +87,7 @@ in Realtime and DebugView, but they are attributed to `(direct)` / `(not set)` t
 - **Send purchase to GA4** in an order's Actions menu, and **Send to GA4** as a bulk action on up to 25 selected
   orders, send purchases that were missed (for example before the app was set up). Orders older than 72 hours,
   already sent, or not paid are skipped and listed in the result.
-- **Validate setup** in the app's Actions menu sends a sample purchase to the
+- **Test connection** in the app's Actions menu sends a sample purchase to the
   [validation server](https://developers.google.com/analytics/devguides/collection/protocol/ga4/validating-events)
   and shows its messages. Nothing is recorded in GA4.
 
@@ -129,7 +129,7 @@ never stored in code.
    ```
 
 4. In the Swell dashboard open **Apps → Google Analytics 4 → Settings**, enter the Measurement ID and API secret,
-   save, and run **Actions → Validate setup**.
+   save, and run **Actions → Test connection**.
 5. Turn on **Debug mode** and **Enable Integration**, place a test order, and check **Admin → DebugView** in GA4.
    Turn Debug mode off when done.
 6. Add the storefront snippet above so server events join the shopper's session.
@@ -144,8 +144,8 @@ never stored in code.
 ## Limits and known behavior
 
 - **No error reporting from GA4** – the collect endpoint accepts any well-formed request with a 2xx response, so
-  invalid events are dropped silently. Use **Validate setup** and DebugView to check events. The validation server
-  does not check the API secret.
+  invalid events are dropped silently. Use **Test connection** and DebugView to check events. The validation server
+  does not check the Measurement ID or the API secret.
 - **72 hours** – GA4 accepts events dated up to 72 hours back, so there is no import of older orders. Purchases sent
   later are recorded at the time they are sent.
 - **Duplicate purchases** if the storefront also sends `purchase` with gtag.js. GA4 deduplicates purchases with the
