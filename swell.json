@@ -1,5 +1,6 @@
 {
 	"description": "Server-side GA4 purchases, refunds and sign-ups",
+	"repository_url": "https://github.com/swellstores/ga4-app",
 	"id": "ga4",
 	"name": "Google Analytics 4",
 	"type": "integration",
